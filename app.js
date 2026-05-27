@@ -1,6 +1,6 @@
 import express from "express"
 import cors from "cors"
-import { getMongoLastError, isDbReady } from "./db.js"
+import { ensureDbConnected, getMongoStatus, isDbReady } from "./db.js"
 import { proxyFootballRequest } from "./footballProxy.js"
 import apiRoutes from "./routes.js"
 
@@ -18,13 +18,23 @@ export function createApp() {
   )
   app.use(express.json())
 
-  app.get("/api/health", (_req, res) => {
+  app.get("/api/health", async (_req, res) => {
+    if (!isDbReady()) {
+      try {
+        await ensureDbConnected()
+      } catch {
+        /* reported below */
+      }
+    }
+
+    const status = getMongoStatus()
     res.json({
       ok: true,
       db: isDbReady(),
       mongoEnvSet: Boolean(process.env.MONGODB_URI),
       apiFootballKeySet: Boolean(process.env.API_FOOTBALL_KEY),
-      mongoLastError: getMongoLastError(),
+      mongoState: status.state,
+      mongoLastError: status.lastError,
       message: isDbReady()
         ? "API and database ready"
         : "API up; waiting for MongoDB…",

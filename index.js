@@ -50,9 +50,7 @@ if (!process.env.VERCEL) {
     process.exit(0)
   })
 } else {
-  // Vercel cold start: do a few retries so allowlist propagation/network hiccups
-  // won't permanently keep the app in db:false.
-  void connectWithRetry(5)
+  // Serverless: connect on first request via ensureDbConnected() in routes/health.
 }
 
 export default app

@@ -1,16 +1,21 @@
 import { Router } from "express"
-import { getDb, isDbReady } from "./db.js"
+import { ensureDbConnected, getDb, getMongoLastError } from "./db.js"
 import { computeGroupStandings } from "./standings.js"
 import { gradePrediction, pointsForGrade } from "./scoring.js"
 
 const router = Router()
 
-router.use((req, res, next) => {
-  if (isDbReady()) return next()
-  res.status(503).json({
-    error:
-      "Database not connected yet. Check MONGODB_URI in .env.local and your internet.",
-  })
+router.use(async (req, res, next) => {
+  try {
+    await ensureDbConnected()
+    next()
+  } catch {
+    res.status(503).json({
+      error:
+        "Database not connected yet. Check MONGODB_URI on Vercel and Atlas network access.",
+      detail: getMongoLastError(),
+    })
+  }
 })
 
 function normalizeName(name) {

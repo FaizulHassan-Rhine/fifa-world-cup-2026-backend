@@ -4,9 +4,28 @@ let client
 let db
 let ready = false
 let lastMongoError = null
+/** @type {'idle' | 'connecting' | 'ready' | 'failed'} */
+let connectState = "idle"
+/** @type {Promise<import("mongodb").Db> | null} */
+let connectPromise = null
 
 export function isDbReady() {
   return ready
+}
+
+export function getMongoLastError() {
+  const msg =
+    lastMongoError instanceof Error
+      ? lastMongoError.message
+      : String(lastMongoError || "")
+  return msg ? msg.slice(0, 240) : null
+}
+
+export function getMongoStatus() {
+  return {
+    state: ready ? "ready" : connectState,
+    lastError: getMongoLastError(),
+  }
 }
 
 export async function connectDb() {
@@ -22,10 +41,13 @@ export async function connectDb() {
     ready = false
   }
 
+  const isVercel = Boolean(process.env.VERCEL)
   client = new MongoClient(uri, {
-    serverSelectionTimeoutMS: 12_000,
-    family: 4,
+    serverSelectionTimeoutMS: isVercel ? 20_000 : 12_000,
+    // Vercel may need IPv6; forcing IPv4 only can cause timeouts.
+    ...(isVercel ? {} : { family: 4 }),
   })
+
   try {
     await client.connect()
     db = client.db()
@@ -38,12 +60,13 @@ export async function connectDb() {
       { unique: true },
     )
     ready = true
+    connectState = "ready"
     lastMongoError = null
     return db
   } catch (err) {
-    // Store the last error so /api/health can surface it in production.
     lastMongoError = err
     ready = false
+    connectState = "failed"
     try {
       await client.close().catch(() => {})
     } catch {
@@ -55,6 +78,29 @@ export async function connectDb() {
   }
 }
 
+/** Connect on demand (required for Vercel serverless — background connect may not run). */
+export async function ensureDbConnected() {
+  if (ready && db) return db
+  if (connectPromise) return connectPromise
+
+  connectState = "connecting"
+  connectPromise = connectDb()
+    .then((database) => {
+      connectState = "ready"
+      return database
+    })
+    .catch((err) => {
+      connectState = "failed"
+      lastMongoError = err
+      throw err
+    })
+    .finally(() => {
+      connectPromise = null
+    })
+
+  return connectPromise
+}
+
 export function getDb() {
   if (!db || !ready) throw new Error("Database not connected")
   return db
@@ -62,13 +108,9 @@ export function getDb() {
 
 export async function closeDb() {
   ready = false
+  connectState = "idle"
+  connectPromise = null
   if (client) await client.close()
   client = undefined
   db = undefined
-}
-
-export function getMongoLastError() {
-  const msg =
-    lastMongoError instanceof Error ? lastMongoError.message : String(lastMongoError || "")
-  return msg ? msg.slice(0, 240) : null
 }
