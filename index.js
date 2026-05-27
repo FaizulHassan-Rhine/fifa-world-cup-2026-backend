@@ -32,6 +32,7 @@ async function connectWithRetry() {
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`[api] Prediction API on http://localhost:${PORT}`)
+    console.log(`[api] Football proxy: http://localhost:${PORT}/api/football/fixtures`)
     void connectWithRetry()
   })
 

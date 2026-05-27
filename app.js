@@ -1,6 +1,7 @@
 import express from "express"
 import cors from "cors"
 import { isDbReady } from "./db.js"
+import { proxyFootballRequest } from "./footballProxy.js"
 import apiRoutes from "./routes.js"
 
 export function createApp() {
@@ -25,6 +26,21 @@ export function createApp() {
         ? "API and database ready"
         : "API up; waiting for MongoDB…",
     })
+  })
+
+  app.all(/^\/api\/football(\/.*)?$/, async (req, res) => {
+    try {
+      const suffix = req.path.replace(/^\/api\/football/, "") || "/"
+      const query = req.url.includes("?")
+        ? req.url.slice(req.url.indexOf("?"))
+        : ""
+      const upstreamPath = suffix + query
+      const { status, body, contentType } = await proxyFootballRequest(upstreamPath)
+      res.status(status).type(contentType).send(body)
+    } catch (e) {
+      console.warn("[football-proxy]", e)
+      res.status(502).json({ error: "Football API proxy failed" })
+    }
   })
 
   app.use("/api", apiRoutes)
