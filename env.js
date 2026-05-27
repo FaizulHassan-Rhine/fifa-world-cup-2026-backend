@@ -5,4 +5,3 @@ import dotenv from "dotenv"
 const appDir = path.dirname(fileURLToPath(import.meta.url))
 
 dotenv.config({ path: path.join(appDir, ".env.local") })
-dotenv.config({ path: path.join(appDir, ".env") })

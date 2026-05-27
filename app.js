@@ -22,6 +22,8 @@ export function createApp() {
     res.json({
       ok: true,
       db: isDbReady(),
+      mongoEnvSet: Boolean(process.env.MONGODB_URI),
+      apiFootballKeySet: Boolean(process.env.API_FOOTBALL_KEY),
       message: isDbReady()
         ? "API and database ready"
         : "API up; waiting for MongoDB…",
