@@ -1,6 +1,6 @@
 import express from "express"
 import cors from "cors"
-import { isDbReady } from "./db.js"
+import { getMongoLastError, isDbReady } from "./db.js"
 import { proxyFootballRequest } from "./footballProxy.js"
 import apiRoutes from "./routes.js"
 
@@ -24,6 +24,7 @@ export function createApp() {
       db: isDbReady(),
       mongoEnvSet: Boolean(process.env.MONGODB_URI),
       apiFootballKeySet: Boolean(process.env.API_FOOTBALL_KEY),
+      mongoLastError: getMongoLastError(),
       message: isDbReady()
         ? "API and database ready"
         : "API up; waiting for MongoDB…",
